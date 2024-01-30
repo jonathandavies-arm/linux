@@ -96,6 +96,7 @@ struct arm_spe_queue {
 	u64				timestamp;
 	struct thread			*thread;
 	u64				period_instructions;
+	struct branch_stack *last_branch;
 };
 
 static void arm_spe_dump(struct arm_spe *spe __maybe_unused,
@@ -218,6 +219,20 @@ static struct arm_spe_queue *arm_spe__alloc_queue(struct arm_spe *spe,
 	speq->decoder = arm_spe_decoder_new(&params);
 	if (!speq->decoder)
 		goto out_free;
+
+	spe->synth_opts.last_branch = true;
+	spe->synth_opts.last_branch_sz = 1;
+	// printf("arm_spe__alloc_queue last_branch %d sz %d\n", spe->synth_opts.last_branch, spe->synth_opts.last_branch_sz);
+	if (spe->synth_opts.last_branch) {
+		size_t sz = sizeof(struct branch_stack);
+
+		sz += spe->synth_opts.last_branch_sz *
+		      sizeof(struct branch_entry);
+		// printf("arm_spe__alloc_queue size 0x%lX\n", sz);
+		speq->last_branch = zalloc(sz);
+		if (!speq->last_branch)
+			goto out_free;
+	}
 
 	return speq;
 
@@ -350,6 +365,8 @@ static int arm_spe__synth_mem_sample(struct arm_spe_queue *speq,
 	union perf_event *event = speq->event_buf;
 	struct perf_sample sample = { .ip = 0, };
 
+	// printf("arm_spe__synth_mem_sample\n");
+
 	arm_spe_prep_sample(spe, speq, event, &sample);
 
 	sample.id = spe_events_id;
@@ -370,12 +387,19 @@ static int arm_spe__synth_branch_sample(struct arm_spe_queue *speq,
 	union perf_event *event = speq->event_buf;
 	struct perf_sample sample = { .ip = 0, };
 
+	// printf("arm_spe__synth_branch_sample\n");
+
 	arm_spe_prep_sample(spe, speq, event, &sample);
 
 	sample.id = spe_events_id;
 	sample.stream_id = spe_events_id;
 	sample.addr = record->to_ip;
 	sample.weight = record->latency;
+
+	speq->last_branch->nr = 1;
+	speq->last_branch->entries->from = record->from_ip;
+	speq->last_branch->entries->to = record->to_ip;	
+	sample.branch_stack = speq->last_branch;
 
 	return arm_spe_deliver_synth_event(spe, speq, event, &sample);
 }
@@ -387,6 +411,8 @@ static int arm_spe__synth_instruction_sample(struct arm_spe_queue *speq,
 	struct arm_spe_record *record = &speq->decoder->record;
 	union perf_event *event = speq->event_buf;
 	struct perf_sample sample = { .ip = 0, };
+
+	// printf("arm_spe__synth_instruction_sample\n");
 
 	/*
 	 * Handles perf instruction sampling period.
