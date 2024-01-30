@@ -1307,6 +1307,8 @@ static void cs_etm__update_last_branch_rb(struct cs_etm_queue *etmq,
 	struct branch_stack *bs = tidq->last_branch_rb;
 	struct branch_entry *be;
 
+	// printf("cs_etm__update_last_branch_rb\n");
+
 	/*
 	 * The branches are recorded in a circular buffer in reverse
 	 * chronological order: we start recording from the last element of the
@@ -1324,6 +1326,8 @@ static void cs_etm__update_last_branch_rb(struct cs_etm_queue *etmq,
 	/* No support for mispredict */
 	be->flags.mispred = 0;
 	be->flags.predicted = 1;
+
+	// printf("branch_entry 0x%lX 0x%lX\n", be->from, be->to);
 
 	/*
 	 * Increment bs->nr until reaching the number of last branches asked by
@@ -1479,6 +1483,8 @@ static int cs_etm__synth_instruction_sample(struct cs_etm_queue *etmq,
 	union perf_event *event = tidq->event_buf;
 	struct perf_sample sample = {.ip = 0,};
 
+	// printf("cs_etm__synth_instruction_sample\n");
+
 	event->sample.header.type = PERF_RECORD_SAMPLE;
 	event->sample.header.misc = cs_etm__cpu_mode(etmq, addr, tidq->el);
 	event->sample.header.size = sizeof(struct perf_event_header);
@@ -1515,6 +1521,7 @@ static int cs_etm__synth_instruction_sample(struct cs_etm_queue *etmq,
 			"CS ETM Trace: failed to deliver instruction event, error %d\n",
 			ret);
 
+	// printf("cs_etm__synth_instruction_sample end\n");
 	return ret;
 }
 
@@ -1718,6 +1725,9 @@ static int cs_etm__sample(struct cs_etm_queue *etmq,
 	instrs_prev = tidq->period_instructions;
 
 	tidq->period_instructions += tidq->packet->instr_count;
+
+	// printf("cs_etm__sample\n");
+	// printf("cs_etm__sample %lu %d\n", instrs_prev, tidq->packet->instr_count);
 
 	/*
 	 * Record a branch when the last instruction in
@@ -2358,6 +2368,7 @@ static int cs_etm__process_traceid_queue(struct cs_etm_queue *etmq,
 {
 	int ret;
 	struct cs_etm_packet_queue *packet_queue;
+	// printf("Running cs_etm__process_traceid_queue %d\n", tidq->packet->sample_type);
 
 	packet_queue = &tidq->packet_queue;
 
