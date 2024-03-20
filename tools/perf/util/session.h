@@ -49,6 +49,7 @@ struct perf_session {
 	struct zstd_data	zstd_data;
 	struct decomp_data	decomp_data;
 	struct decomp_data	*active_decomp;
+	bool spe_brstacks;
 };
 
 struct decomp {

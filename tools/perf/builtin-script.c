@@ -3825,6 +3825,7 @@ int cmd_script(int argc, const char **argv)
 	const char *dlfilter_file = NULL;
 	const char **__argv;
 	int i, j, err = 0;
+	bool spe_brstacks = false;
 	struct perf_script script = {
 		.tool = {
 			.sample		 = process_sample_event,
@@ -3968,6 +3969,7 @@ int cmd_script(int argc, const char **argv)
 		    "Maximum number of code blocks to dump with brstackinsn"),
 	OPT_BOOLEAN(0, "ns", &symbol_conf.nanosecs,
 		    "Use 9 decimal places when displaying time"),
+	OPT_BOOLEAN(0, "spe-brstacks", &spe_brstacks, "Mine Mine Mine"),
 	OPT_CALLBACK_OPTARG(0, "itrace", &itrace_synth_opts, NULL, "opts",
 			    "Instruction Tracing options\n" ITRACE_HELP,
 			    itrace_parse_synth_opts),
@@ -4257,6 +4259,7 @@ script_found:
 		itrace_synth_opts.thread_stack = true;
 
 	session->itrace_synth_opts = &itrace_synth_opts;
+	session->spe_brstacks = spe_brstacks;
 
 	if (cpu_list) {
 		err = perf_session__cpu_bitmap(session, cpu_list, cpu_bitmap);

@@ -220,11 +220,15 @@ static struct arm_spe_queue *arm_spe__alloc_queue(struct arm_spe *spe,
 	if (!speq->decoder)
 		goto out_free;
 
-	spe->synth_opts.last_branch = true;
-	spe->synth_opts.last_branch_sz = 1;
-	// printf("arm_spe__alloc_queue last_branch %d sz %d\n", spe->synth_opts.last_branch, spe->synth_opts.last_branch_sz);
-	if (spe->synth_opts.last_branch) {
+
+	// session->itrace_synth_opts
+	
+	// printf("arm_spe__alloc_queue my_flag %d\n", spe->session->my_flag);
+	// printf("arm_spe__alloc_queue last_branch %d sz %d\n", spe->synth_opts.set, spe->synth_opts.last_branch, spe->synth_opts.last_branch_sz);
+	// spe->synth_opts.last_branch = true;
+	if (spe->session->spe_brstacks) {
 		size_t sz = sizeof(struct branch_stack);
+		spe->synth_opts.last_branch_sz = 1;
 
 		sz += spe->synth_opts.last_branch_sz *
 		      sizeof(struct branch_entry);
@@ -376,6 +380,17 @@ static int arm_spe__synth_mem_sample(struct arm_spe_queue *speq,
 	sample.data_src = data_src;
 	sample.weight = record->latency;
 
+	if (spe->session->spe_brstacks) {
+		if (record->from_ip && record->to_ip) {
+			speq->last_branch->nr = 1;
+			speq->last_branch->entries->from = record->from_ip;
+			speq->last_branch->entries->to = record->to_ip;	
+			sample.branch_stack = speq->last_branch;
+			return arm_spe_deliver_synth_event(spe, speq, event, &sample);
+		}
+		return 0;
+	}
+
 	return arm_spe_deliver_synth_event(spe, speq, event, &sample);
 }
 
@@ -396,10 +411,16 @@ static int arm_spe__synth_branch_sample(struct arm_spe_queue *speq,
 	sample.addr = record->to_ip;
 	sample.weight = record->latency;
 
-	speq->last_branch->nr = 1;
-	speq->last_branch->entries->from = record->from_ip;
-	speq->last_branch->entries->to = record->to_ip;	
-	sample.branch_stack = speq->last_branch;
+	if (spe->session->spe_brstacks) {
+		if (record->from_ip && record->to_ip) {
+			speq->last_branch->nr = 1;
+			speq->last_branch->entries->from = record->from_ip;
+			speq->last_branch->entries->to = record->to_ip;	
+			sample.branch_stack = speq->last_branch;
+			return arm_spe_deliver_synth_event(spe, speq, event, &sample);
+		}
+		return 0;
+	}
 
 	return arm_spe_deliver_synth_event(spe, speq, event, &sample);
 }
@@ -431,6 +452,17 @@ static int arm_spe__synth_instruction_sample(struct arm_spe_queue *speq,
 	sample.data_src = data_src;
 	sample.period = spe->instructions_sample_period;
 	sample.weight = record->latency;
+
+	if (spe->session->spe_brstacks) {
+		if (record->from_ip && record->to_ip) {
+			speq->last_branch->nr = 1;
+			speq->last_branch->entries->from = record->from_ip;
+			speq->last_branch->entries->to = record->to_ip;	
+			sample.branch_stack = speq->last_branch;
+			return arm_spe_deliver_synth_event(spe, speq, event, &sample);
+		}
+		return 0;
+	}
 
 	return arm_spe_deliver_synth_event(spe, speq, event, &sample);
 }
